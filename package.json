@@ -22,8 +22,22 @@
       {
         "command": "loco-developer-preview.launch",
         "title": "Loco Developer Preview: Launch"
+      },
+      {
+        "command": "loco-developer-preview.changeUrl",
+        "title": "Loco Developer Preview: Change Url Source"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "%loco-developer-preview.commands.category%",
+      "properties": {
+        "loco-developer-preview": {
+          "type": "string",
+          "default": "http://localhost:3000"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",

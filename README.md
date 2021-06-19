@@ -3,7 +3,7 @@
  VSCode extension to preview http local dev servers in editor.
 ## Usage
 
-`ctrl + shift + p` + "Responsive Preview: Url"
+`ctrl + shift + p` + "Loco Developer Preview: Launch"
 
 ## Known Issues
 
