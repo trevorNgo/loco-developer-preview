@@ -14,27 +14,36 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:loco-developer-preview.launch"
+    "onCommand:locoDeveloperPreviewExtension.launch",
+    "onCommand:locoDeveloperPreviewExtension.changeUrl"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "loco-developer-preview.launch",
-        "title": "Loco Developer Preview: Launch"
+        "command": "locoDeveloperPreviewExtension.launch",
+        "title": "Loco-Developer-Preview: Launch",
+        "category": "LDP"
       },
       {
-        "command": "loco-developer-preview.changeUrl",
-        "title": "Loco Developer Preview: Change Url Source"
+        "command": "locoDeveloperPreviewExtension.changeUrl",
+        "title": "Loco-Developer-Preview: Change Url Source",
+        "category": "LDP"
       }
     ],
     "configuration": {
       "type": "object",
-      "title": "%loco-developer-preview.commands.category%",
+      "title": "LDP: Loco Developer Preview",
       "properties": {
-        "loco-developer-preview": {
+        "LDP.locoDevPreviewExtension.defaultUrl": {
           "type": "string",
-          "default": "http://localhost:3000"
+          "default": "http://localhost:3000",
+          "description": "Set default url string that launches with Loco-Developer-Preview."
+        },
+        "LDP.locoDevPreviewExtension.restrictToHttp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Restricts the url to be http (no TLS) domain."
         }
       }
     }
