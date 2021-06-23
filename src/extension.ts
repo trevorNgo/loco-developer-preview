@@ -8,13 +8,15 @@ export function activate(context: vscode.ExtensionContext) {
   let launch = vscode.commands.registerCommand(
     "locoDeveloperPreviewExtension.launch",
     () => {
-      Controller.getInstance(context).setServerUrlAndShowRefreshPage();
+      Controller.getInstance(context).then((ext) => ext?.showPreviewPanel());
     }
   );
   let changeUrl = vscode.commands.registerCommand(
     "locoDeveloperPreviewExtension.changeUrl",
     () => {
-      Controller.getInstance(context).setServerUrlAndShowRefreshPage();
+      Controller.getInstance(context).then((ext) =>
+        ext?.setServerUrlAndShowRefreshPage()
+      );
     }
   );
 
@@ -23,4 +25,6 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate(context: vscode.ExtensionContext) {
+  Controller.getInstance(context).then((ext) => ext?.dispose());
+}

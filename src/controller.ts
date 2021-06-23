@@ -3,13 +3,15 @@ import { DEFAULT_URL } from "./constants";
 export class Controller {
   /**
    * Provides access to the Controller. Maintains Singleton Pattern. Function will bring up ReactPanel to View if Controller instance exists, otherwise will instantiate a new Controller.
-   * @returns Singleton Controller type
+   * @returns Singleton Controller type if additional action should be taken
    */
-  public static getInstance(context: vscode.ExtensionContext): Controller {
-    if (this._instance) {
-      this._instance.showPreviewPanel();
-    } else {
+  public static async getInstance(
+    context: vscode.ExtensionContext
+  ): Promise<Controller | undefined> {
+    if (!this._instance) {
       this._instance = new Controller(context);
+      await this._instance.setServerUrlAndShowRefreshPage();
+      return;
     }
     return this._instance;
   }
@@ -26,10 +28,10 @@ export class Controller {
 
   private constructor(context: vscode.ExtensionContext) {
     Controller.vsContext = context;
-
-    this.setServerUrlAndShowRefreshPage(this.getWorkspaceConfig());
+    this;
   }
-  private getWorkspaceConfig(): IWorkspaceSettings {
+
+  public getWorkspaceConfig(): IWorkspaceSettings {
     const settingDefinedUrl = vscode.workspace
       .getConfiguration()
       .get<string>("LDP.locoDevPreviewExtension.defaultUrl");
@@ -44,22 +46,69 @@ export class Controller {
     Controller.wsSettings = wsSettings;
     return wsSettings;
   }
+
+  /**
+   * Used for setting URL of a [non]existing preview window
+   * @type: {Controller}
+   */
   public async setServerUrlAndShowRefreshPage(
-    workspaceSettings?: IWorkspaceSettings
+    workspaceSettings?: IWorkspaceSettings,
+    attemptFastRefresh?: boolean
   ) {
+    await this.promptForServerUrl(workspaceSettings);
+    await this.showPreviewPanel(attemptFastRefresh);
+  }
+
+  private async promptForServerUrl(workspaceSettings?: IWorkspaceSettings) {
+    const inputOptions: vscode.InputBoxOptions =
+      this.configureInputOptions(workspaceSettings);
+    const defaultMessage = `Using default '${
+      workspaceSettings?.userDefinedUrl || DEFAULT_URL
+    }' url defined in settings.`;
+    try {
+      let result = await vscode.window.showInputBox(inputOptions);
+      if (result === undefined) {
+        return;
+      } else if (result.trim() === "") {
+        vscode.window.showInformationMessage(defaultMessage);
+      } else if (!result.startsWith("http")) {
+        this.url = "http://" + result;
+      } else {
+        this.url = result || workspaceSettings?.userDefinedUrl;
+      }
+    } catch (e) {
+      vscode.window.showErrorMessage(
+        `Loco Developer Preview could not capture your url response.` +
+          defaultMessage
+      );
+    }
+  }
+
+  /**
+   * Helper function that most importantly sets up validation behavior of url input
+   * @type: {Controller}
+   */
+  private configureInputOptions(
+    workspaceSettings?: IWorkspaceSettings
+  ): vscode.InputBoxOptions {
     const config: IWorkspaceSettings = workspaceSettings
       ? workspaceSettings
       : Controller.wsSettings
       ? Controller.wsSettings
       : this.getWorkspaceConfig();
 
-    const inputOptions: vscode.InputBoxOptions = {
-      title: "Http Full Url",
+    return {
+      title: "Full Http Url",
       value: config.userDefinedUrl,
       valueSelection:
         config.userDefinedUrl === DEFAULT_URL ? [17, 30] : undefined,
       validateInput: (inputStr: string) => {
-        if (inputStr.startsWith("http://localhost")) {
+        if (
+          inputStr.startsWith("http://localhost") ||
+          inputStr.startsWith("http://127.1.1.0") ||
+          inputStr.startsWith("localhost") ||
+          inputStr.startsWith("127.1.1.0")
+        ) {
           return null;
         } else if (
           !config.httpLocalhostRestriction &&
@@ -71,24 +120,15 @@ export class Controller {
         }
       },
     };
-    const defaultMessage = `Using default '${config.userDefinedUrl}' defined in settings.`;
-    try {
-      const result = await vscode.window.showInputBox(inputOptions);
-      if (result === undefined) {
-        this.dispose();
-      } else if (result.trim() === "") {
-        vscode.window.showInformationMessage(defaultMessage);
-      }
-      this.url = result || config.userDefinedUrl;
-    } catch (e) {
-      console.log("bye");
-      vscode.window.showErrorMessage(
-        `Loco Developer Preview could not capture your url response. ` +
-          defaultMessage
-      );
-    }
   }
-  private async showPreviewPanel(): Promise<void> {
+
+  public async showPreviewPanel(attemptFastRefresh?: boolean): Promise<void> {
+    if (!this.url) {
+      vscode.window.showErrorMessage(
+        "LDP: Server URL is undefined. Cancelling request."
+      );
+      return;
+    }
     if (this.currentPanel) {
       this.currentPanel.reveal(vscode.ViewColumn.Two);
     }
@@ -121,22 +161,31 @@ export class Controller {
                        width: 100%;
                    }
                 </style>
+                <script>
+                function hideLoadingMessage(){
+                  window.document.getElementById("loadingMessage").style.display="none"
+                }
+                </script>
             </head>
             <body>
-            <iframe id="preview-window" src="${this.url}"> Bad link given to vscode iframe.
+            <h1 id="loadingMessage">Your preview is loading...</h1>
+            <iframe id="preview-window" src="${this.url}" onload="hideLoadingMessage()"> Bad link given to vscode iframe.
             </iframe>
             </body>
             </html>`;
+      this.currentPanel.onDidDispose(
+        () => {
+          this.currentPanel = undefined;
+        },
+        undefined,
+        Controller.vsContext.subscriptions
+      );
     }
-    this.currentPanel.onDidDispose(
-      () => {
-        this.currentPanel = undefined;
-      },
-      undefined,
-      Controller.vsContext.subscriptions
-    );
   }
   public dispose(): void {
+    if (this.currentPanel) {
+      this.currentPanel.dispose();
+    }
     Controller._instance = undefined;
   }
 }
