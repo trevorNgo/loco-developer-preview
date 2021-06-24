@@ -28,9 +28,13 @@ export class Controller {
 
   private constructor(context: vscode.ExtensionContext) {
     Controller.vsContext = context;
+    Controller.wsSettings = this.getWorkspaceConfig();
     this;
   }
-
+  /**
+   * Making public to give control refreshing user workspace settings, function args are optional for this reason.
+   * @type: {Controller}
+   */
   public getWorkspaceConfig(): IWorkspaceSettings {
     const settingDefinedUrl = vscode.workspace
       .getConfiguration()
@@ -43,7 +47,6 @@ export class Controller {
       userDefinedUrl: settingDefinedUrl,
       httpLocalhostRestriction,
     };
-    Controller.wsSettings = wsSettings;
     return wsSettings;
   }
 
@@ -99,9 +102,11 @@ export class Controller {
 
     return {
       title: "Full Http Url",
-      value: config.userDefinedUrl,
+      value: this.url || config.userDefinedUrl,
       valueSelection:
-        config.userDefinedUrl === DEFAULT_URL ? [17, 30] : undefined,
+        this.url === DEFAULT_URL || config.userDefinedUrl === DEFAULT_URL
+          ? [17, 30]
+          : undefined,
       validateInput: (inputStr: string) => {
         if (
           inputStr.startsWith("http://localhost") ||
@@ -125,12 +130,18 @@ export class Controller {
   public async showPreviewPanel(attemptFastRefresh?: boolean): Promise<void> {
     if (!this.url) {
       vscode.window.showErrorMessage(
-        "LDP: Server URL is undefined. Cancelling request."
+        "LDP: Server URL input is undefined. Cancelling request."
       );
       return;
     }
     if (this.currentPanel) {
       this.currentPanel.reveal(vscode.ViewColumn.Two);
+      if (attemptFastRefresh) {
+        this.currentPanel.webview.postMessage({
+          command: "setUrl",
+          url: this.url,
+        });
+      }
     }
 
     // The code you place here will be executed every time your command is executed
@@ -160,19 +171,77 @@ export class Controller {
                        height:100%;
                        width: 100%;
                    }
+                   h1 {
+                     text-align:center;
+                   }
                 </style>
                 <script>
+                const vscode = acquireVsCodeApi();
                 function hideLoadingMessage(){
-                  window.document.getElementById("loadingMessage").style.display="none"
+                  window.document.getElementById("loadingMessage").style.display="none";
                 }
+                function verifyUrl(url){
+                  const http = new XMLHttpRequest();
+                  http.open("GET", url, /*async*/true);
+                  
+                  http.addEventListener("error", reportError);
+                  
+                  try {
+                    http.send(null);
+                  } catch(exception) {
+                    // this is expected
+                    console.log("XMLHttpRequest failed");
+                  }
+                }
+                verifyUrl('${this.url}')
+                
+                function reportError(){
+                  vscode.postMessage({command:"alert", error:true})
+                }
+                
+                // Handle the message inside the webview
+                window.addEventListener('message', event => {
+                  const message = event.data; // The JSON data our extension sent
+                  
+                  switch (message.command) {
+                    case 'setUrl':
+                      verifyUrl(message.url);
+                      window.document.getElementById("loadingMessage").style.display="block";
+                      const iframe = window.document.getElementById('preview-window');
+                      iframe.src = message.url
+                      break;
+                  }
+                });
                 </script>
             </head>
             <body>
             <h1 id="loadingMessage">Your preview is loading...</h1>
-            <iframe id="preview-window" src="${this.url}" onload="hideLoadingMessage()"> Bad link given to vscode iframe.
+            <iframe id="preview-window" src="${this.url}" onload="hideLoadingMessage()" onerror="reportError()"> Bad link given to vscode iframe.
             </iframe>
             </body>
             </html>`;
+
+      // Handle messages from the webview
+      this.currentPanel.webview.onDidReceiveMessage(
+        (message) => {
+          switch (message.command) {
+            case "alert":
+              vscode.window
+                .showErrorMessage(
+                  "LDP is detecting the selected url is not working...",
+                  "Try Another URL?"
+                )
+                .then((selection) => {
+                  if (selection === "Try Another URL?") {
+                    this.setServerUrlAndShowRefreshPage(undefined, true);
+                  }
+                });
+              return;
+          }
+        },
+        undefined,
+        Controller.vsContext.subscriptions
+      );
       this.currentPanel.onDidDispose(
         () => {
           this.currentPanel = undefined;

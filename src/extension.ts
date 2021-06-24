@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
     "locoDeveloperPreviewExtension.changeUrl",
     () => {
       Controller.getInstance(context).then((ext) =>
-        ext?.setServerUrlAndShowRefreshPage()
+        ext?.setServerUrlAndShowRefreshPage(undefined, true)
       );
     }
   );
