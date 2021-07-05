@@ -4,6 +4,7 @@
   "description": "Lightweight url previewer in vscode",
   "publisher": "trevorNgo",
   "version": "0.0.1",
+  "icon": "img/LocoLogo-v4.png",
   "repository": {
     "url": "https://github.com/trevorNgo/webdevpreviewer"
   },
