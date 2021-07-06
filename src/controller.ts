@@ -154,7 +154,7 @@ export class Controller {
     else {
       Controller.currentPanel = vscode.window.createWebviewPanel(
         "responsivepreview", // Identifies the type of the webview. Used internally
-        "Preview", // Title of the panel displayed to the user
+        "LDP", // Title of the panel displayed to the user
         vscode.ViewColumn.Two, // Editor column to show the new webview panel in.
         { enableScripts: true, retainContextWhenHidden: true } // Webview options. Retain context.
       );
@@ -186,20 +186,11 @@ export class Controller {
                   window.document.getElementById("loadingMessage").style.display="none";
                 }
                 function verifyUrl(url){
-                  const http = new XMLHttpRequest();
-                  http.open("GET", url, /*async*/true);
-                  
-                  http.addEventListener("error", reportError);
-                  
-                  try {
-                    http.send(null);
-                  } catch(exception) {
-                    // this is expected
-                    console.log("XMLHttpRequest failed");
-                  }
+                  fetch(url, {mode:"no-cors"}).catch(reportError);
                 }
                 
-                function reportError(){
+                function reportError(e){
+                  console.error("Error:", e);
                   vscode.postMessage({command:"alert", error:true})
                 }
                 
@@ -221,7 +212,7 @@ export class Controller {
             </head>
             <body>
             <h1 id="loadingMessage">Your preview is loading...</h1>
-            <iframe id="preview-window" src="${this.url}" onload="hideLoadingMessage()" onerror="reportError()"> Bad link given to vscode iframe.
+            <iframe id="preview-window" onload="hideLoadingMessage()" onerror="reportError()"> Bad link given to vscode iframe.
             </iframe>
             </body>
             </html>`;
