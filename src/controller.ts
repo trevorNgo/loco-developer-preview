@@ -62,7 +62,9 @@ export class Controller {
     await this.showPreviewPanel(attemptFastRefresh);
   }
 
-  private async promptForServerUrl(workspaceSettings?: IWorkspaceSettings) {
+  private async promptForServerUrl(
+    workspaceSettings?: IWorkspaceSettings
+  ): Promise<void> {
     const inputOptions: vscode.InputBoxOptions =
       this.configureInputOptions(workspaceSettings);
     const defaultMessage = `Using default '${
@@ -123,23 +125,26 @@ export class Controller {
           (inputStr.startsWith("http://") || inputStr.startsWith("https://"))
         ) {
           return null;
+        } else if (!config.httpLocalhostRestriction) {
+          return "URL must start with app protocol 'http://' or 'https://'";
         } else {
-          return "Url must start 'http://' (no TLS) afterall this is a previewer for local dev servers. If you want to remove this restriction go to vscode settings -> Extensions -> LDP -> Restrict Http";
+          return "Url must start with 'http://localhost' (no TLS) afterall this is a previewer for local dev servers. If you want to remove this restriction go to vscode settings -> Extensions -> LDP -> Restrict Http";
         }
       },
     };
   }
 
   public async showPreviewPanel(attemptFastRefresh?: boolean): Promise<void> {
-    if (!this.url) {
+    if (!this.url && !Controller.currentPanel) {
       vscode.window.showErrorMessage(
         "LDP: Server URL input is undefined. Cancelling request."
       );
+      this.dispose();
       return;
     }
     if (Controller.currentPanel) {
       Controller.currentPanel.reveal(vscode.ViewColumn.Two);
-      if (attemptFastRefresh) {
+      if (attemptFastRefresh && this.url) {
         Controller.currentPanel.webview.postMessage({
           command: "setUrl",
           url: this.url,
