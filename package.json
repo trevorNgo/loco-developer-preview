@@ -28,7 +28,7 @@
       },
       {
         "command": "locoDeveloperPreviewExtension.changeUrl",
-        "title": "Loco-Developer-Preview: Change Url Source",
+        "title": "Loco-Developer-Preview: Change URL Source",
         "category": "LDP"
       }
     ],
