@@ -23,7 +23,7 @@ export class Controller {
   private static _instance: Controller | undefined;
   public static vsContext: vscode.ExtensionContext;
   public static wsSettings: IWorkspaceSettings;
-  private currentPanel: vscode.WebviewPanel | undefined = undefined;
+  private static currentPanel: vscode.WebviewPanel | undefined = undefined;
   private url: string | undefined;
 
   private constructor(context: vscode.ExtensionContext) {
@@ -99,14 +99,17 @@ export class Controller {
       : Controller.wsSettings
       ? Controller.wsSettings
       : this.getWorkspaceConfig();
-
+    const value = this.url || config.userDefinedUrl;
+    // search for colon after app protocol indicating port number
+    const portStartIndex = value?.indexOf(":", 6) || -1;
+    const valueSelection: [number, number] | undefined =
+      portStartIndex !== -1 && value
+        ? [portStartIndex + 1, value.length]
+        : undefined;
     return {
       title: "Full Http Url",
-      value: this.url || config.userDefinedUrl,
-      valueSelection:
-        this.url === DEFAULT_URL || config.userDefinedUrl === DEFAULT_URL
-          ? [17, 30]
-          : undefined,
+      value,
+      valueSelection,
       validateInput: (inputStr: string) => {
         if (
           inputStr.startsWith("http://localhost") ||
@@ -134,10 +137,10 @@ export class Controller {
       );
       return;
     }
-    if (this.currentPanel) {
-      this.currentPanel.reveal(vscode.ViewColumn.Two);
+    if (Controller.currentPanel) {
+      Controller.currentPanel.reveal(vscode.ViewColumn.Two);
       if (attemptFastRefresh) {
-        this.currentPanel.webview.postMessage({
+        Controller.currentPanel.webview.postMessage({
           command: "setUrl",
           url: this.url,
         });
@@ -149,13 +152,13 @@ export class Controller {
     //   vscode.window.showInformationMessage(
     //   );
     else {
-      this.currentPanel = vscode.window.createWebviewPanel(
+      Controller.currentPanel = vscode.window.createWebviewPanel(
         "responsivepreview", // Identifies the type of the webview. Used internally
         "Preview", // Title of the panel displayed to the user
         vscode.ViewColumn.Two, // Editor column to show the new webview panel in.
-        { enableScripts: true } // Webview options. More on these later.
+        { enableScripts: true, retainContextWhenHidden: true } // Webview options. Retain context.
       );
-      this.currentPanel.webview.html = `<!DOCTYPE html>
+      Controller.currentPanel.webview.html = `<!DOCTYPE html>
             <html lang="en">
             <head>
                 <meta charset="UTF-8">
@@ -177,6 +180,8 @@ export class Controller {
                 </style>
                 <script>
                 const vscode = acquireVsCodeApi();
+                vscode.postMessage({command:"ready"})
+
                 function hideLoadingMessage(){
                   window.document.getElementById("loadingMessage").style.display="none";
                 }
@@ -193,7 +198,6 @@ export class Controller {
                     console.log("XMLHttpRequest failed");
                   }
                 }
-                verifyUrl('${this.url}')
                 
                 function reportError(){
                   vscode.postMessage({command:"alert", error:true})
@@ -207,6 +211,7 @@ export class Controller {
                     case 'setUrl':
                       verifyUrl(message.url);
                       window.document.getElementById("loadingMessage").style.display="block";
+                      window.document.getElementById("loadingMessage").innerHTML="Your preview is loading: " + message.url;
                       const iframe = window.document.getElementById('preview-window');
                       iframe.src = message.url
                       break;
@@ -222,29 +227,40 @@ export class Controller {
             </html>`;
 
       // Handle messages from the webview
-      this.currentPanel.webview.onDidReceiveMessage(
+      Controller.currentPanel.webview.onDidReceiveMessage(
         (message) => {
+          const TRYAGAIN = "Try Another URL";
+          const CLOSE = "Close Alert";
           switch (message.command) {
             case "alert":
               vscode.window
                 .showErrorMessage(
-                  "LDP is detecting the selected url is not working...",
-                  "Try Another URL?"
+                  "LDP is detecting the url is not working... False positives may be from CORS policy, so ignore this message if page is working.",
+                  TRYAGAIN,
+                  CLOSE
                 )
                 .then((selection) => {
-                  if (selection === "Try Another URL?") {
+                  if (selection === TRYAGAIN) {
                     this.setServerUrlAndShowRefreshPage(undefined, true);
+                  } else if (selection === CLOSE) {
+                    // Allow vscode error window to close with no action
+                    // Controller.currentPanel!.dispose();
                   }
                 });
               return;
+            case "ready":
+              Controller.currentPanel!.webview.postMessage({
+                command: "setUrl",
+                url: this.url,
+              });
           }
         },
         undefined,
         Controller.vsContext.subscriptions
       );
-      this.currentPanel.onDidDispose(
+      Controller.currentPanel.onDidDispose(
         () => {
-          this.currentPanel = undefined;
+          this.dispose();
         },
         undefined,
         Controller.vsContext.subscriptions
@@ -252,8 +268,9 @@ export class Controller {
     }
   }
   public dispose(): void {
-    if (this.currentPanel) {
-      this.currentPanel.dispose();
+    if (Controller.currentPanel) {
+      Controller.currentPanel.dispose();
+      Controller.currentPanel = undefined;
     }
     Controller._instance = undefined;
   }
