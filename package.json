@@ -1,18 +1,40 @@
 {
   "name": "loco-developer-preview",
   "displayName": "Loco Developer Preview",
-  "description": "Lightweight url previewer in vscode",
+  "description": "Lightweight local development server previewer in vscode",
+  "icon": "img/LocoLogo-v4.png",
+  "license": "SEE LICENSE IN LICENSE.md",
   "publisher": "trevorNgo",
   "version": "0.0.1",
-  "icon": "img/LocoLogo-v4.png",
   "repository": {
-    "url": "https://github.com/trevorNgo/webdevpreviewer"
+    "type": "git",
+    "url": "https://github.com/trevorNgo/loco-developer-preview"
+  },
+  "galleryBanner": {
+    "color": "#00360e",
+    "theme": "dark"
   },
   "engines": {
-    "vscode": "^1.57.0"
+    "vscode": "^1.17.0"
   },
   "categories": [
+    "Extension Packs",
+    "Visualization",
     "Other"
+  ],
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "keywords": [
+    "preview",
+    "previewer",
+    "local",
+    "dev",
+    "development",
+    "web",
+    "server",
+    "localhost"
   ],
   "activationEvents": [
     "onCommand:locoDeveloperPreviewExtension.launch",
